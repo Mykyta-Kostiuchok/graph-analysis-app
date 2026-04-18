@@ -18,6 +18,8 @@
     "graphology": "^0.26.0",
     "graphology-communities-louvain": "^2.0.2",
     "graphology-components": "^1.5.4",
+    "graphology-gexf": "^0.13.2",
+    "graphology-graphml": "^0.5.2",
     "graphology-layout": "^0.6.1",
     "graphology-metrics": "^2.4.0",
     "graphology-shortest-path": "^2.1.0",
@@ -33,7 +35,8 @@
     "react-dropzone": "^15.0.0",
     "react-hot-toast": "^2.6.0",
     "recharts": "^3.8.1",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "xml2js": "^0.6.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -44,6 +47,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",
+    "@types/xml2js": "^0.4.14",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",

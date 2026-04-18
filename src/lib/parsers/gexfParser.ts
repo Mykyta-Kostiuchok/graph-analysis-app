@@ -1,14 +1,14 @@
 import { parse } from 'graphology-gexf/browser'
+import Graph from 'graphology'
 import { GraphData } from '@/types/graph'
 
 export async function parseGEXF(file: File): Promise<GraphData> {
   try {
     const text = await file.text()
     
-    // Parse GEXF into a graph
-    const graph = parse(text)
+    // Pass the Graph constructor, not an instance — parse() creates the graph internally
+    const graph = parse(Graph, text)
 
-    // Convert it to our format
     const nodes = graph.nodes().map(nodeId => ({
       id: nodeId,
       ...graph.getNodeAttributes(nodeId)
