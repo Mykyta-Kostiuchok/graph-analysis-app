@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { buildGraph } from '@/lib/algorithms/graphBuilder'
+import { calculateAllMetrics } from '@/lib/algorithms/metrics'
 import { GraphData } from '@/types/graph'
 
 export async function POST(request: Request) {
@@ -15,30 +16,34 @@ export async function POST(request: Request) {
     }
 
     // Build graph
-    const result = buildGraph({ nodes, edges })
+    const buildResult = buildGraph({ nodes, edges })
     
-    // Convert the graph into a serializable format for the response
+    // Calculate metrics
+    const metrics = calculateAllMetrics(buildResult.graph)
+    
+    // Convert the graph into a serializable format
     const graphAttributes = {
-      nodes: result.graph.nodes().map(node => ({
+      nodes: buildResult.graph.nodes().map(node => ({
         id: node,
-        ...result.graph.getNodeAttributes(node)
+        ...buildResult.graph.getNodeAttributes(node)
       })),
-      edges: result.graph.edges().map(edge => ({
+      edges: buildResult.graph.edges().map(edge => ({
         id: edge,
-        source: result.graph.source(edge),
-        target: result.graph.target(edge),
-        ...result.graph.getEdgeAttributes(edge)
+        source: buildResult.graph.source(edge),
+        target: buildResult.graph.target(edge),
+        ...buildResult.graph.getEdgeAttributes(edge)
       }))
     }
 
     return NextResponse.json({
       success: true,
       graph: graphAttributes,
+      metrics: metrics,
       stats: {
-        nodeCount: result.nodeCount,
-        edgeCount: result.edgeCount,
-        isDirected: result.isDirected,
-        isConnected: result.isConnected
+        nodeCount: buildResult.nodeCount,
+        edgeCount: buildResult.edgeCount,
+        isDirected: buildResult.isDirected,
+        isConnected: buildResult.isConnected
       }
     })
   } catch (error) {

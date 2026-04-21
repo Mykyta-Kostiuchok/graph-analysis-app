@@ -1,14 +1,14 @@
 import { parse } from 'graphology-graphml'
+import Graph from 'graphology'
 import { GraphData } from '@/types/graph'
 
 export async function parseGraphML(file: File): Promise<GraphData> {
   try {
     const text = await file.text()
-    
-    // Parse GraphML into a graph
-    const graph = parse(text, {
-      allowUndeclaredNodes: true,
-      validateGraphML: true
+
+    // First arg is the Graph constructor, second is the string — mirrors the GEXF parser
+       const graph = parse(Graph, text, {
+      addMissingNodes: true
     })
 
     // Convert it to our format

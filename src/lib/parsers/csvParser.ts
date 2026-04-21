@@ -5,15 +5,14 @@ export async function parseCSV(file: File): Promise<ParsedFile> {
   try {
     // Convert File to text for PapaParse
     const text = await file.text()
-    
-    // Парсим CSV
-    const result = Papa.parse(text, {
-      header: true,           // Use the first row as headings
-      skipEmptyLines: true,   // Skip empty lines
-      delimiter: ',',         // Separator
+
+    // Provide the generic so result.data is Record<string, any>[] instead of unknown[]
+    const result = Papa.parse<Record<string, any>>(text, {
+      header: true,
+      skipEmptyLines: true,
+      delimiter: ',',
       transform: (value) => {
-        // Convert numbers automatically
-        if (!isNaN(Number(value)) && value !== '') {
+        if (value !== '' && !isNaN(Number(value))) {
           return Number(value)
         }
         return value
@@ -48,19 +47,28 @@ export async function parseCSVWithConfig(
   } = {}
 ): Promise<ParsedFile> {
   const text = await file.text()
-  
-  const result = Papa.parse(text, {
-    header: config.hasHeader ?? true,
-    skipEmptyLines: true,
-    delimiter: config.delimiter || ',',
-    ...(config.columns && { columns: config.columns })
-  })
+  const hasHeader = config.hasHeader ?? true
+
+  // Use the generic matching the header mode:
+  const result = hasHeader
+    ? Papa.parse<Record<string, any>>(text, {
+        header: true,
+        skipEmptyLines: true,
+        delimiter: config.delimiter || ','
+      })
+    : Papa.parse<string[]>(text, {
+        header: false,
+        skipEmptyLines: true,
+        delimiter: config.delimiter || ','
+      })
+
+  const headers = hasHeader
+    ? result.meta.fields || config.columns || []
+    : config.columns || []
 
   return {
     data: result.data,
-    headers: Array.isArray(result.data[0]) 
-      ? config.columns || []
-      : Object.keys(result.data[0] || {}),
+    headers,
     rowCount: result.data.length,
     fileType: 'csv',
     fileName: file.name,
