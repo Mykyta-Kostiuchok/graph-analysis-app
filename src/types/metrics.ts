@@ -6,10 +6,13 @@ export interface NodeMetrics {
   inDegree?: number;
   outDegree?: number;
   betweenness?: number;
+  normalizedBetweenness?: number;
+  betweennessRank?: number;
   closeness?: number;
+  normalizedCloseness?: number;
+  closenessRank?: number;
   pagerank?: number;
   community?: number;
-  [key: string]: any;
 }
 
 export interface NetworkMetrics {
@@ -35,4 +38,22 @@ export interface DegreeDistributionPoint {
   degree: number;
   count: number;
   frequency: number;
+}
+
+export interface NodeMetrics {
+  nodeId: string;
+  degree: number;
+  normalizedDegree: number;
+  degreeRank: number;
+  inDegree?: number;
+  outDegree?: number;
+  betweenness?: number;
+  normalizedBetweenness?: number;
+  betweennessRank?: number;
+  closeness?: number;
+  normalizedCloseness?: number;
+  closenessRank?: number;
+  pagerank?: number;
+  community?: number;
+  [key: string]: any;
 }

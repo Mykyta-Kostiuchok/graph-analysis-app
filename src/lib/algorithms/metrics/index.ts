@@ -6,6 +6,12 @@ import {
   getTopNodesByDegree,
   DegreeCentralityResult,
 } from "./degree";
+import {
+  calculateBetweennessCentrality,
+  calculateClosenessCentrality,
+  BetweennessResult,
+  ClosenessResult,
+} from "./centrality";
 import { NodeMetrics, NetworkMetrics } from "@/types/metrics";
 
 export interface AllMetricsResult {
@@ -14,18 +20,40 @@ export interface AllMetricsResult {
 }
 
 export function calculateAllMetrics(graph: Graph): AllMetricsResult {
-  // Single pass — reuse results for both node metrics and statistics
+  // Calculate all metrics
   const degreeResults = calculateDegreeCentrality(graph);
+  const betweennessResults = calculateBetweennessCentrality(graph);
+  const closenessResults = calculateClosenessCentrality(graph);
+
   const degreeStats = computeStatsFromResults(degreeResults);
 
-  const nodeMetrics: NodeMetrics[] = degreeResults.map((degree) => ({
-    nodeId: degree.nodeId,
-    degree: degree.degree,
-    normalizedDegree: degree.normalizedDegree,
-    degreeRank: degree.rank,
-    ...(degree.inDegree !== undefined && { inDegree: degree.inDegree }),
-    ...(degree.outDegree !== undefined && { outDegree: degree.outDegree }),
-  }));
+  // Combine metrics for each node
+  const nodeMetrics: NodeMetrics[] = degreeResults.map((degree) => {
+    const nodeId = degree.nodeId;
+
+    // Find the corresponding metrics for betweenness and closeness
+    const betweenness = betweennessResults.find((b) => b.nodeId === nodeId);
+    const closeness = closenessResults.find((c) => c.nodeId === nodeId);
+
+    return {
+      nodeId: degree.nodeId,
+      degree: degree.degree,
+      normalizedDegree: degree.normalizedDegree,
+      degreeRank: degree.rank,
+      ...(degree.inDegree !== undefined && { inDegree: degree.inDegree }),
+      ...(degree.outDegree !== undefined && { outDegree: degree.outDegree }),
+      ...(betweenness && {
+        betweenness: betweenness.betweenness,
+        normalizedBetweenness: betweenness.normalizedBetweenness,
+        betweennessRank: betweenness.rank,
+      }),
+      ...(closeness && {
+        closeness: closeness.closeness,
+        normalizedCloseness: closeness.normalizedCloseness,
+        closenessRank: closeness.rank,
+      }),
+    };
+  });
 
   const networkMetrics: NetworkMetrics = {
     nodeCount: graph.order,
@@ -33,7 +61,6 @@ export function calculateAllMetrics(graph: Graph): AllMetricsResult {
     density: calculateDensity(graph),
     averageDegree: degreeStats.mean,
     degreeDistribution: {
-      // <- Правильная структура
       min: degreeStats.min,
       max: degreeStats.max,
       mean: degreeStats.mean,
@@ -91,4 +118,6 @@ export {
   addDegreeCentralityToGraph,
   getDegreeStatistics,
   getTopNodesByDegree,
+  calculateBetweennessCentrality,
+  calculateClosenessCentrality,
 };
