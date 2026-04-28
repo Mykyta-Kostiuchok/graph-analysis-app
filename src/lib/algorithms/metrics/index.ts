@@ -6,21 +6,23 @@ import {
   getTopNodesByDegree,
   DegreeCentralityResult,
 } from "./degree";
-import { 
-  calculateBetweennessCentrality, 
+import {
+  calculateBetweennessCentrality,
   calculateClosenessCentrality,
   BetweennessResult,
-  ClosenessResult 
+  ClosenessResult,
 } from "./centrality";
-import { 
-  calculatePageRank,
-  PageRankResult 
-} from "./pagerank";
+import { calculatePageRank, PageRankResult } from "./pagerank";
+import {
+  detectCommunitiesLouvain,
+  LouvainAnalysis,
+} from "../communities/louvain";
 import { NodeMetrics, NetworkMetrics } from "@/types/metrics";
 
 export interface AllMetricsResult {
   nodeMetrics: NodeMetrics[];
   networkMetrics: NetworkMetrics;
+  communityAnalysis?: LouvainAnalysis;
 }
 
 export function calculateAllMetrics(graph: Graph): AllMetricsResult {
@@ -29,18 +31,21 @@ export function calculateAllMetrics(graph: Graph): AllMetricsResult {
   const betweennessResults = calculateBetweennessCentrality(graph);
   const closenessResults = calculateClosenessCentrality(graph);
   const pagerankResults = calculatePageRank(graph);
-  
+  const communityResults = detectCommunitiesLouvain(graph);
+
   const degreeStats = computeStatsFromResults(degreeResults);
 
   // Combine node metrics into a single structure
   const nodeMetrics: NodeMetrics[] = degreeResults.map((degree) => {
     const nodeId = degree.nodeId;
-    
+
     // Find corresponding betweenness, closeness, and pagerank results for this node
-    const betweenness = betweennessResults.find(b => b.nodeId === nodeId);
-    const closeness = closenessResults.find(c => c.nodeId === nodeId);
-    const pagerank = pagerankResults.find(p => p.nodeId === nodeId); 
-    
+    const betweenness = betweennessResults.find((b) => b.nodeId === nodeId);
+    const closeness = closenessResults.find((c) => c.nodeId === nodeId);
+    const pagerank = pagerankResults.find((p) => p.nodeId === nodeId);
+    const community = communityResults.communities.find(
+      (c: { nodeId: string; community: number }) => c.nodeId === nodeId,
+    );
     return {
       nodeId: degree.nodeId,
       degree: degree.degree,
@@ -51,17 +56,20 @@ export function calculateAllMetrics(graph: Graph): AllMetricsResult {
       ...(betweenness && {
         betweenness: betweenness.betweenness,
         normalizedBetweenness: betweenness.normalizedBetweenness,
-        betweennessRank: betweenness.rank
+        betweennessRank: betweenness.rank,
       }),
       ...(closeness && {
         closeness: closeness.closeness,
         normalizedCloseness: closeness.normalizedCloseness,
-        closenessRank: closeness.rank
+        closenessRank: closeness.rank,
       }),
       ...(pagerank && {
         pagerank: pagerank.pagerank,
-        pagerankRank: pagerank.rank
-      })
+        pagerankRank: pagerank.rank,
+      }),
+      ...(community && {
+        community: community.community,
+      }),
     };
   });
 
@@ -77,9 +85,15 @@ export function calculateAllMetrics(graph: Graph): AllMetricsResult {
       median: degreeStats.median,
       stdDev: degreeStats.stdDev,
     },
+    communityCount: communityResults.communityCount,
+    modularity: communityResults.modularity,
   };
 
-  return { nodeMetrics, networkMetrics };
+  return {
+    nodeMetrics,
+    networkMetrics,
+    communityAnalysis: communityResults,
+  };
 }
 
 // Accepts pre-computed results to avoid a redundant graph traversal
@@ -131,4 +145,5 @@ export {
   calculateBetweennessCentrality,
   calculateClosenessCentrality,
   calculatePageRank,
+  detectCommunitiesLouvain,
 };
