@@ -11,7 +11,8 @@ export interface NodeMetrics {
   closeness?: number;
   normalizedCloseness?: number;
   closenessRank?: number;
-  pagerank?: number;
+  pagerank?: number; 
+  pagerankRank?: number;
   community?: number;
 }
 
