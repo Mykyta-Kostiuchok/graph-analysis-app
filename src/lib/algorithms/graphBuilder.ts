@@ -1,5 +1,5 @@
-import Graph from 'graphology'
-import { createGraphFromData, normalizeGraphData } from '../graphology'
+import Graph, { UndirectedGraph, DirectedGraph } from 'graphology'
+import { normalizeGraphData } from '../graphology'
 import { GraphData } from '@/types/graph'
 
 export interface BuiltGraphResult {
@@ -12,50 +12,69 @@ export interface BuiltGraphResult {
 
 export function buildGraph(graphData: GraphData): BuiltGraphResult {
   try {
-    // Normalizing data
+    // Normalize data
     const normalizedData = normalizeGraphData(graphData.nodes, graphData.edges)
-    
-    // Create graph
-    const graph = createGraphFromData(normalizedData.nodes, normalizedData.edges)
-    
-    // Determine graph properties
-    const isDirected = detectIfDirected(graph)
+
+    // Detect directionality BEFORE building the graph, on raw edge data
+    const isDirected = detectIfDirected(normalizedData.edges)
+
+    // Explicitly create the correct graph type — Louvain requires UndirectedGraph
+    const graph: Graph = isDirected ? new DirectedGraph() : new UndirectedGraph()
+
+    // Add nodes
+    normalizedData.nodes.forEach(node => {
+      graph.addNode(node.id, { label: node.label ?? node.id })
+    })
+
+    // Add edges, skip duplicates
+    normalizedData.edges.forEach(edge => {
+      if (!graph.hasEdge(edge.source, edge.target)) {
+        graph.addEdge(edge.source, edge.target, { weight: edge.weight ?? 1 })
+      }
+    })
+
     const isConnected = checkIfConnected(graph)
-    
+
     return {
       graph,
-      nodeCount: graph.order, // number of nodes
-      edgeCount: graph.size,  // number of edge
+      nodeCount: graph.order,
+      edgeCount: graph.size,
       isDirected,
       isConnected
     }
   } catch (error) {
-    throw new Error(`Ошибка построения графа: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`)
+    throw new Error(
+      `Graph build error: ${error instanceof Error ? error.message : 'Unknown error'}`
+    )
   }
 }
 
-// Checking whether a graph is directed
-function detectIfDirected(graph: Graph): boolean {
-  // Check all edges for inverses
-  let isDirected = false
-  
-  graph.forEachEdge((edge, attrs, source, target) => {
-    if (!graph.hasEdge(target, source)) {
-      isDirected = true
-      return false // break the loop
+/**
+ * Detect directionality from raw edge list BEFORE building the graph.
+ *
+ * Previous implementation used graph.forEachEdge() with `return false` to break
+ * the loop — that doesn't work in graphology (it's not Array.forEach).
+ * This version operates on the raw edges array and is safe.
+ */
+function detectIfDirected(edges: GraphData['edges']): boolean {
+  const edgeSet = new Set(edges.map(e => `${e.source}→${e.target}`))
+
+  for (const edge of edges) {
+    // If the reverse edge doesn't exist → at least one directed edge → directed graph
+    if (!edgeSet.has(`${edge.target}→${edge.source}`)) {
+      return true
     }
-  })
-  
-  return isDirected
+  }
+
+  return false
 }
 
-// Checking graph connectivity
+// Check graph connectivity via DFS
 function checkIfConnected(graph: Graph): boolean {
   if (graph.order === 0) return true
   if (graph.order === 1) return true
-  
+
   try {
-    // For a simple check we use connected components
     const components = getConnectedComponents(graph)
     return components.length === 1
   } catch {
@@ -63,23 +82,23 @@ function checkIfConnected(graph: Graph): boolean {
   }
 }
 
-// Take from graphology components
 function getConnectedComponents(graph: Graph): string[][] {
   const visited = new Set<string>()
   const components: string[][] = []
-  
+
   graph.forEachNode(node => {
     if (!visited.has(node)) {
       const component: string[] = []
       const stack: string[] = [node]
-      
+
       while (stack.length > 0) {
         const current = stack.pop()!
+
         if (!visited.has(current)) {
           visited.add(current)
           component.push(current)
-          
-          // Add neighbors to stack
+
+          // Use neighbors() — works for both directed and undirected
           graph.neighbors(current).forEach(neighbor => {
             if (!visited.has(neighbor)) {
               stack.push(neighbor)
@@ -87,16 +106,15 @@ function getConnectedComponents(graph: Graph): string[][] {
           })
         }
       }
-      
+
       components.push(component)
     }
   })
-  
+
   return components
 }
 
-// Function to prepare the graph for visualization
+// Stub kept for API compatibility — layout is handled on the frontend
 export function prepareGraphForVisualization(graph: Graph): Graph {
-  
   return graph
 }
