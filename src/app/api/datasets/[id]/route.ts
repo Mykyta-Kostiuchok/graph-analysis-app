@@ -3,18 +3,37 @@ import { karateClubDataset } from '@/lib/datasets/karateClub'
 import { buildGraph } from '@/lib/algorithms/graphBuilder'
 import { calculateAllMetrics } from '@/lib/algorithms/metrics'
 
-export async function GET() {
+// demo datasets
+const demoDatasets: Record<string, any> = {
+  'karate': karateClubDataset,
+}
+
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
   try {
-    // Build graph from Karate Club dataset
-    const graphResult = buildGraph(karateClubDataset)
+    const datasetId = params.id
     
-    // Calculate all metrics
+    // Check if the dataset exists
+    if (!demoDatasets[datasetId]) {
+      return NextResponse.json(
+        { error: 'Dataset not found' },
+        { status: 404 }
+      )
+    }
+
+    const dataset = demoDatasets[datasetId]
+    
+    // Build the graph
+    const graphResult = buildGraph(dataset)
+    
+    // Calculate metrics
     const metrics = calculateAllMetrics(graphResult.graph)
     
     const responseData = {
       success: true,
-      dataset: "Zachary's Karate Club",
-      description: "Social network of friendships between 34 members of a karate club",
+      dataset: datasetId,
       graph: {
         nodes: graphResult.graph.nodes().map(nodeId => ({
           id: nodeId,
@@ -38,11 +57,11 @@ export async function GET() {
 
     return NextResponse.json(responseData)
   } catch (error) {
-    console.error('Karate Club dataset processing error:', error)
+    console.error('Demo dataset error:', error)
     return NextResponse.json(
       { 
         success: false,
-        error: error instanceof Error ? error.message : 'Error processing Karate Club dataset',
+        error: error instanceof Error ? error.message : 'Error processing demo dataset',
       },
       { status: 500 }
     )
