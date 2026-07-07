@@ -11,21 +11,21 @@ interface GraphControlsProps {
   showHelp?: boolean
 }
 
-export function GraphControls({ 
-  onZoomIn, 
-  onZoomOut, 
-  onReset, 
+export function GraphControls({
+  onZoomIn,
+  onZoomOut,
+  onReset,
   onFit,
-  showHelp = true 
+  showHelp = true,
 }: GraphControlsProps) {
   const [showInstructions, setShowInstructions] = useState(false)
 
   const instructions = [
-    "Lewy przycisk myszy + przeciągnięcie węzła - przesunięcie węzła",
-    "Kółko myszy - zmiana skali",
-    "Prawy przycisk myszy + przeciągnięcie - przemieszczanie się po grafie",
-    "Podwójne kliknięcie na tle - zresetuj skalę",
-    "Klik po węźle - wybranie węzła"
+    " LPM + przeciąganie węzła - przesunięcie węzła",
+    " Koło myszy - skalowanie",
+    " PPM + przeciąganie - przesunięcie po grafie",
+    " Podwójne kliknięcie na tle - zresetowanie skali",
+    " Kliknięcie na węzeł - zaznaczenie węzła",
   ]
 
   return (
@@ -33,40 +33,40 @@ export function GraphControls({
       <div className="flex gap-2">
         <button
           onClick={onZoomIn}
-          className="p-2 bg-white border rounded shadow hover:bg-gray-50"
-          title="Powiększ"
+          className="p-2 bg-white border rounded shadow hover:bg-gray-50 transition-colors"
+          title="Zwiększyć"
         >
           <ZoomIn className="h-4 w-4" />
         </button>
-        
+
         <button
           onClick={onZoomOut}
-          className="p-2 bg-white border rounded shadow hover:bg-gray-50"
-          title="Zmniejsz"
+          className="p-2 bg-white border rounded shadow hover:bg-gray-50 transition-colors"
+          title="Zmniejszyć"
         >
           <ZoomOut className="h-4 w-4" />
         </button>
-        
+
         <button
           onClick={onReset}
-          className="p-2 bg-white border rounded shadow hover:bg-gray-50"
+          className="p-2 bg-white border rounded shadow hover:bg-gray-50 transition-colors"
           title="Zresetuj"
         >
           <RotateCcw className="h-4 w-4" />
         </button>
-        
+
         <button
           onClick={onFit}
-          className="p-2 bg-white border rounded shadow hover:bg-gray-50"
-          title="Dopasuj do rozmiaru"
+          className="p-2 bg-white border rounded shadow hover:bg-gray-50 transition-colors"
+          title="Po rozmiarze"
         >
           <Move className="h-4 w-4" />
         </button>
-        
+
         {showHelp && (
           <button
             onClick={() => setShowInstructions(!showInstructions)}
-            className="p-2 bg-white border rounded shadow hover:bg-gray-50"
+            className="p-2 bg-white border rounded shadow hover:bg-gray-50 transition-colors"
             title="Pomoc"
           >
             <Info className="h-4 w-4" />
@@ -79,7 +79,10 @@ export function GraphControls({
           <h3 className="font-bold mb-2">Zarządzanie grafem</h3>
           <ul className="text-sm space-y-1">
             {instructions.map((instruction, i) => (
-              <li key={i}>{instruction}</li>
+              <li key={i} className="flex items-start gap-2">
+                <span>{instruction.split(' ')[0]}</span>
+                <span>{instruction.split(' ').slice(1).join(' ')}</span>
+              </li>
             ))}
           </ul>
         </div>
