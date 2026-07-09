@@ -1,8 +1,15 @@
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import * as d3 from "d3";
 import { GraphData } from "@/types/graph";
+import { CommunityLegend } from "./CommunityLegend";
 
 interface GraphCanvasProps {
   graphData: GraphData;
@@ -25,6 +32,16 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
     );
     const gRef = useRef<SVGGElement | null>(null);
     const selectedNodeRef = useRef<string | null>(null);
+    const [showLegend, setShowLegend] = useState(true);
+
+    // Get unique communities
+    const communities = [
+      ...new Set(
+        graphData.nodes
+          .map((node) => (node as any).community)
+          .filter((community) => community !== undefined && community !== null),
+      ),
+    ].sort((a, b) => a - b) as number[];
 
     useImperativeHandle(ref, () => ({
       zoomIn: () => {
@@ -81,7 +98,7 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
       const svg = d3.select<SVGSVGElement, unknown>(svgRef.current);
 
       if (nodeId === null) {
-        // Reset highlight
+        // Reset highlighting 
         svg
           .selectAll(".links line")
           .attr("stroke-opacity", 0.6)
@@ -148,6 +165,28 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
         .attr("font-weight", "bold");
     };
 
+    // Color palette for communities
+    const getCommunityColor = (community: number | undefined) => {
+      const colors = [
+        "#ff7f0e",
+        "#2ca02c",
+        "#d62728",
+        "#9467bd",
+        "#8c564b",
+        "#e377c2",
+        "#7f7f7f",
+        "#bcbd22",
+        "#17becf",
+        "#1f77b4",
+      ];
+
+      if (community === undefined || community === null) {
+        return "#69b3a2"; // default color for nodes without a community
+      }
+
+      return colors[community % colors.length];
+    };
+
     useEffect(() => {
       if (!svgRef.current || !graphData.nodes.length) return;
 
@@ -211,7 +250,7 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
           const degree = (d as any).degree;
           return degree ? Math.max(8, Math.min(20, degree * 0.5 + 8)) : 12;
         })
-        .attr("fill", "#69b3a2")
+        .attr("fill", (d) => getCommunityColor((d as any).community))
         .attr("stroke", "#fff")
         .attr("stroke-width", 1.5)
         .on("click", (event, d) => {
@@ -316,15 +355,24 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
     }, [graphData, width, height]);
 
     return (
-      <div
-        className="border rounded-lg p-4 bg-white overflow-hidden"
-        style={{ width, height }}
-      >
-        <svg
-          ref={svgRef}
-          width={width}
-          height={height}
-          className="border rounded"
+      <div className="relative">
+        <div
+          className="border rounded-lg p-4 bg-white overflow-hidden"
+          style={{ width, height }}
+        >
+          <svg
+            ref={svgRef}
+            width={width}
+            height={height}
+            className="border rounded"
+          />
+        </div>
+
+        {/* Community Legend */}
+        <CommunityLegend
+          communities={communities}
+          isVisible={showLegend}
+          onToggle={setShowLegend}
         />
       </div>
     );

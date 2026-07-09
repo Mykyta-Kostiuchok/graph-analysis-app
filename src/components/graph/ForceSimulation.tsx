@@ -1,8 +1,15 @@
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import * as d3 from "d3";
 import { GraphData } from "@/types/graph";
+import { CommunityLegend } from "./CommunityLegend";
 
 interface ForceSimulationProps {
   graphData: GraphData;
@@ -26,6 +33,16 @@ export const ForceSimulation = forwardRef<
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const gRef = useRef<SVGGElement | null>(null);
   const selectedNodeRef = useRef<string | null>(null);
+  const [showLegend, setShowLegend] = useState(true);
+
+  // Get unique communities
+  const communities = [
+    ...new Set(
+      graphData.nodes
+        .map((node) => (node as any).community)
+        .filter((community) => community !== undefined && community !== null),
+    ),
+  ].sort((a, b) => a - b) as number[];
 
   useImperativeHandle(ref, () => ({
     zoomIn: () => {
@@ -145,6 +162,28 @@ export const ForceSimulation = forwardRef<
       .attr("font-weight", "bold");
   };
 
+  // Color palette for communities
+  const getCommunityColor = (community: number | undefined) => {
+    const colors = [
+      "#ff7f0e",
+      "#2ca02c",
+      "#d62728",
+      "#9467bd",
+      "#8c564b",
+      "#e377c2",
+      "#7f7f7f",
+      "#bcbd22",
+      "#17becf",
+      "#1f77b4",
+    ];
+
+    if (community === undefined || community === null) {
+      return "#1f77b4"; // default color for nodes without a community
+    }
+
+    return colors[community % colors.length];
+  };
+
   useEffect(() => {
     if (!svgRef.current || !graphData.nodes.length) return;
 
@@ -215,24 +254,7 @@ export const ForceSimulation = forwardRef<
         const degree = (d as any).degree;
         return degree ? Math.max(8, Math.min(20, degree * 0.5 + 8)) : 12;
       })
-      .attr("fill", (d) => {
-        const community = (d as any).community;
-        const colors = [
-          "#ff7f0e",
-          "#2ca02c",
-          "#d62728",
-          "#9467bd",
-          "#8c564b",
-          "#e377c2",
-          "#7f7f7f",
-          "#bcbd22",
-          "#17becf",
-        ];
-        if (community !== undefined && community >= 0) {
-          return colors[community % colors.length];
-        }
-        return "#1f77b4";
-      })
+      .attr("fill", (d) => getCommunityColor((d as any).community))
       .attr("stroke", "#fff")
       .attr("stroke-width", 1.5)
       .call(drag(simulation) as any)
@@ -346,15 +368,24 @@ export const ForceSimulation = forwardRef<
   }, [graphData, width, height, onNodeClick]);
 
   return (
-    <div
-      className="border rounded-lg p-2 bg-white overflow-hidden"
-      style={{ width, height }}
-    >
-      <svg
-        ref={svgRef}
-        width={width}
-        height={height}
-        className="border rounded"
+    <div className="relative">
+      <div
+        className="border rounded-lg p-2 bg-white overflow-hidden"
+        style={{ width, height }}
+      >
+        <svg
+          ref={svgRef}
+          width={width}
+          height={height}
+          className="border rounded"
+        />
+      </div>
+
+      {/* Community Legend */}
+      <CommunityLegend
+        communities={communities}
+        isVisible={showLegend}
+        onToggle={setShowLegend}
       />
     </div>
   );
