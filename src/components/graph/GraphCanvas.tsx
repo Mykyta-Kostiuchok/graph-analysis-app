@@ -20,8 +20,11 @@ export interface GraphCanvasHandle {
 export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
   ({ graphData, width = 800, height = 600 }, ref) => {
     const svgRef = useRef<SVGSVGElement>(null);
-    const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+    const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(
+      null,
+    );
     const gRef = useRef<SVGGElement | null>(null);
+    const selectedNodeRef = useRef<string | null>(null);
 
     useImperativeHandle(ref, () => ({
       zoomIn: () => {
@@ -66,6 +69,84 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
           );
       },
     }));
+
+    // Function to highlight a node and its connected edges
+    const highlightNode = (
+      nodeId: string | null,
+      edges: any[],
+      nodes: any[],
+    ) => {
+      if (!svgRef.current) return;
+
+      const svg = d3.select<SVGSVGElement, unknown>(svgRef.current);
+
+      if (nodeId === null) {
+        // Reset highlight
+        svg
+          .selectAll(".links line")
+          .attr("stroke-opacity", 0.6)
+          .attr("stroke", "#999");
+
+        svg
+          .selectAll(".nodes circle")
+          .attr("opacity", 1)
+          .attr("stroke", "#fff")
+          .attr("stroke-width", 1.5);
+
+        svg.selectAll(".labels text").attr("opacity", 0.8);
+
+        return;
+      }
+
+      // Dim all nodes and links
+      svg
+        .selectAll(".links line")
+        .attr("stroke-opacity", 0.1)
+        .attr("stroke", "#999");
+
+      svg
+        .selectAll(".nodes circle")
+        .attr("opacity", 0.3)
+        .attr("stroke", "#fff")
+        .attr("stroke-width", 1.5);
+
+      svg.selectAll(".labels text").attr("opacity", 0.3);
+
+      // Find links connected to the selected node
+      const connectedNodes = new Set<string>([nodeId]);
+      const connectedLinks: string[] = [];
+
+      edges.forEach((link) => {
+        if (link.source === nodeId || link.target === nodeId) {
+          connectedNodes.add(link.source);
+          connectedNodes.add(link.target);
+          connectedLinks.push(link.id);
+        }
+      });
+
+      // Highlight connected nodes
+      svg
+        .selectAll(".nodes circle")
+        .filter((d: any) => connectedNodes.has(d.id))
+        .attr("opacity", 1)
+        .attr("stroke", "#ff0000")
+        .attr("stroke-width", 2);
+
+      // Highlight connected links
+      svg
+        .selectAll(".links line")
+        .filter((d: any) => connectedLinks.includes(d.id))
+        .attr("stroke-opacity", 1)
+        .attr("stroke", "#ff0000")
+        .attr("stroke-width", 2);
+
+      // Highlight the labels
+      svg
+        .selectAll(".labels text")
+        .filter((d: any) => connectedNodes.has(d.id))
+        .attr("opacity", 1)
+        .attr("font-weight", "bold");
+    };
 
     useEffect(() => {
       if (!svgRef.current || !graphData.nodes.length) return;
@@ -126,15 +207,44 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
         .data(nodes)
         .enter()
         .append("circle")
-        .attr("r", 8)
+        .attr("r", (d) => {
+          const degree = (d as any).degree;
+          return degree ? Math.max(8, Math.min(20, degree * 0.5 + 8)) : 12;
+        })
         .attr("fill", "#69b3a2")
         .attr("stroke", "#fff")
         .attr("stroke-width", 1.5)
+        .on("click", (event, d) => {
+          event.stopPropagation();
+
+          // Switch the node selection
+          if (selectedNodeRef.current === d.id) {
+            selectedNodeRef.current = null;
+            highlightNode(null, edges, nodes);
+          } else {
+            selectedNodeRef.current = d.id;
+            highlightNode(d.id, edges, nodes);
+          }
+        })
         .on("mouseover", function () {
-          d3.select(this).attr("r", 10);
+          if (!selectedNodeRef.current) {
+            d3.select(this).attr("r", (d: any) => {
+              const baseRadius = (d as any).degree
+                ? Math.max(8, Math.min(20, (d as any).degree * 0.5 + 8))
+                : 12;
+              return baseRadius + 4;
+            });
+          }
         })
         .on("mouseout", function () {
-          d3.select(this).attr("r", 8);
+          if (!selectedNodeRef.current) {
+            d3.select(this).attr("r", (d: any) => {
+              const baseRadius = (d as any).degree
+                ? Math.max(8, Math.min(20, (d as any).degree * 0.5 + 8))
+                : 12;
+              return baseRadius;
+            });
+          }
         });
 
       const label = g
@@ -145,10 +255,12 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
         .enter()
         .append("text")
         .attr("text-anchor", "middle")
-        .attr("dy", -15)
+        .attr("dy", -20)
         .attr("font-size", "10px")
         .attr("fill", "#000")
-        .text((d) => d.label || d.id);
+        .attr("pointer-events", "none")
+        .attr("opacity", 0.8)
+        .text((d) => (d as any).label || d.id);
 
       function ticked() {
         link
@@ -166,6 +278,14 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
           .attr("y", (d) => nodePositions.get(d.id)?.y || 0);
       }
 
+      // Reset selection when clicking on the background
+      svg.on("click", () => {
+        if (selectedNodeRef.current) {
+          selectedNodeRef.current = null;
+          highlightNode(null, edges, nodes);
+        }
+      });
+
       let animationRunning = true;
       const animationInterval = setInterval(() => {
         if (!animationRunning) return;
@@ -174,8 +294,14 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
           const pos = nodePositions.get(node.id);
           if (pos) {
             nodePositions.set(node.id, {
-              x: Math.max(20, Math.min(width - 20, pos.x + (Math.random() - 0.5) * 2)),
-              y: Math.max(20, Math.min(height - 20, pos.y + (Math.random() - 0.5) * 2)),
+              x: Math.max(
+                20,
+                Math.min(width - 20, pos.x + (Math.random() - 0.5) * 2),
+              ),
+              y: Math.max(
+                20,
+                Math.min(height - 20, pos.y + (Math.random() - 0.5) * 2),
+              ),
             });
           }
         });
