@@ -10,11 +10,13 @@ import {
 import * as d3 from "d3";
 import { GraphData } from "@/types/graph";
 import { CommunityLegend } from "./CommunityLegend";
+import { getTopDegreeNodeIds } from "@/lib/graph/enrich-graph-data";
 
 interface GraphCanvasProps {
   graphData: GraphData;
   width?: number;
   height?: number;
+  maxLabels?: number;
 }
 
 export interface GraphCanvasHandle {
@@ -25,13 +27,14 @@ export interface GraphCanvasHandle {
 }
 
 export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
-  ({ graphData, width = 800, height = 600 }, ref) => {
+  ({ graphData, width = 800, height = 600, maxLabels = 8 }, ref) => {
     const svgRef = useRef<SVGSVGElement>(null);
     const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(
       null,
     );
     const gRef = useRef<SVGGElement | null>(null);
     const selectedNodeRef = useRef<string | null>(null);
+    const topLabelIdsRef = useRef<Set<string>>(new Set());
     const [showLegend, setShowLegend] = useState(true);
 
     // Get unique communities
@@ -42,6 +45,10 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
           .filter((community) => community !== undefined && community !== null),
       ),
     ].sort((a, b) => a - b) as number[];
+
+    // Default signature is displayed only for the top-N nodes by degree
+    const getDefaultLabelOpacity = (nodeId: string) =>
+      topLabelIdsRef.current.has(nodeId) ? 0.8 : 0;
 
     useImperativeHandle(ref, () => ({
       zoomIn: () => {
@@ -98,7 +105,7 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
       const svg = d3.select<SVGSVGElement, unknown>(svgRef.current);
 
       if (nodeId === null) {
-        // Reset highlighting 
+        // Reset highlighting
         svg
           .selectAll(".links line")
           .attr("stroke-opacity", 0.6)
@@ -110,7 +117,10 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
           .attr("stroke", "#fff")
           .attr("stroke-width", 1.5);
 
-        svg.selectAll(".labels text").attr("opacity", 0.8);
+        svg
+          .selectAll(".labels text")
+          .attr("opacity", (d: any) => getDefaultLabelOpacity(d.id))
+          .attr("font-weight", "normal");
 
         return;
       }
@@ -127,7 +137,10 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
         .attr("stroke", "#fff")
         .attr("stroke-width", 1.5);
 
-      svg.selectAll(".labels text").attr("opacity", 0.3);
+      svg
+        .selectAll(".labels text")
+        .attr("opacity", 0.15)
+        .attr("font-weight", "normal");
 
       // Find links connected to the selected node
       const connectedNodes = new Set<string>([nodeId]);
@@ -192,6 +205,9 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
 
       const nodes = graphData.nodes.map((d) => ({ ...d }));
       const edges = graphData.edges.map((d) => ({ ...d }));
+
+      // Top nodes by degree — their labels are displayed by default
+      topLabelIdsRef.current = getTopDegreeNodeIds(graphData, maxLabels);
 
       const svg = d3.select<SVGSVGElement, unknown>(svgRef.current);
       svg.selectAll("*").remove();
@@ -265,24 +281,34 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
             highlightNode(d.id, edges, nodes);
           }
         })
-        .on("mouseover", function () {
+        .on("mouseover", function (event, d: any) {
           if (!selectedNodeRef.current) {
-            d3.select(this).attr("r", (d: any) => {
-              const baseRadius = (d as any).degree
-                ? Math.max(8, Math.min(20, (d as any).degree * 0.5 + 8))
+            d3.select(this).attr("r", () => {
+              const baseRadius = d.degree
+                ? Math.max(8, Math.min(20, d.degree * 0.5 + 8))
                 : 12;
               return baseRadius + 4;
             });
+
+            // Show the label of the hovered node, even if it's not in the top
+            g.selectAll(".labels text")
+              .filter((l: any) => l.id === d.id)
+              .attr("opacity", 0.9);
           }
         })
-        .on("mouseout", function () {
+        .on("mouseout", function (event, d: any) {
           if (!selectedNodeRef.current) {
-            d3.select(this).attr("r", (d: any) => {
-              const baseRadius = (d as any).degree
-                ? Math.max(8, Math.min(20, (d as any).degree * 0.5 + 8))
+            d3.select(this).attr("r", () => {
+              const baseRadius = d.degree
+                ? Math.max(8, Math.min(20, d.degree * 0.5 + 8))
                 : 12;
               return baseRadius;
             });
+
+            // Return the label to its default visibility (top-N or hidden)
+            g.selectAll(".labels text")
+              .filter((l: any) => l.id === d.id)
+              .attr("opacity", getDefaultLabelOpacity(d.id));
           }
         });
 
@@ -298,7 +324,7 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
         .attr("font-size", "10px")
         .attr("fill", "#000")
         .attr("pointer-events", "none")
-        .attr("opacity", 0.8)
+        .attr("opacity", (d) => getDefaultLabelOpacity((d as any).id))
         .text((d) => (d as any).label || d.id);
 
       function ticked() {
@@ -352,7 +378,7 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
         animationRunning = false;
         clearInterval(animationInterval);
       };
-    }, [graphData, width, height]);
+    }, [graphData, width, height, maxLabels]);
 
     return (
       <div className="relative">

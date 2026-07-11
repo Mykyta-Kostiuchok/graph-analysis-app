@@ -8,16 +8,16 @@ import {
 import { GraphCanvas, GraphCanvasHandle } from "@/components/graph/GraphCanvas";
 import { GraphControls } from "@/components/graph/GraphControls";
 import { karateClubDataset } from "@/lib/datasets/karateClub";
-import { withDetectedCommunities } from "@/lib/graph/community-detection";
+import { enrichGraphDataWithMetrics } from "@/lib/graph/enrich-graph-data";
 
 export default function TestGraphPage() {
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const canvasRef = useRef<GraphCanvasHandle>(null);
   const forceRef = useRef<ForceSimulationHandle>(null);
 
-  // useMemo to avoid recalculating communities on every render
+  // useMemo to avoid recalculating metrics (degree, community, pagerank...) on every render
   const testData = useMemo(
-    () => withDetectedCommunities(karateClubDataset),
+    () => enrichGraphDataWithMetrics(karateClubDataset),
     [],
   );
 
