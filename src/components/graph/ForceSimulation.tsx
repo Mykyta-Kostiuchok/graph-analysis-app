@@ -42,7 +42,13 @@ export const ForceSimulation = forwardRef<
     const gRef = useRef<SVGGElement | null>(null);
     const selectedNodeRef = useRef<string | null>(null);
     const topLabelIdsRef = useRef<Set<string>>(new Set());
+    const onNodeClickRef = useRef(onNodeClick);
     const [showLegend, setShowLegend] = useState(true);
+
+    // Stores the latest callback in `ref` so that it can be updated without restarting the graph simulation when the state changes.
+    useEffect(() => {
+      onNodeClickRef.current = onNodeClick;
+    }, [onNodeClick]);
 
     // Get unique communities
     const communities = [
@@ -292,12 +298,12 @@ export const ForceSimulation = forwardRef<
             // If clicked on an already selected node - remove selection
             selectedNodeRef.current = null;
             highlightNode(null, edges, nodes);
-            if (onNodeClick) onNodeClick(d.id, null);
+            onNodeClickRef.current?.(d.id, null);
           } else {
             // Select a new node
             selectedNodeRef.current = d.id;
             highlightNode(d.id, edges, nodes);
-            if (onNodeClick) onNodeClick(d.id, d);
+            onNodeClickRef.current?.(d.id, d);
           }
         })
         .on("mouseover", function (event, d) {
@@ -368,25 +374,53 @@ export const ForceSimulation = forwardRef<
       function drag(
         simulation: d3.Simulation<d3.SimulationNodeDatum, undefined>,
       ) {
+        // Offset threshold (in pixels) to prevent a normal click from triggering a drag due to hand tremors.
+        const DRAG_THRESHOLD = 5;
+
         function dragstarted(event: any, d: any) {
-          if (!event.active) simulation.alphaTarget(0.3).restart();
-          d.fx = d.x;
-          d.fy = d.y;
+          // Remember the starting point without locking the coordinates (fx/fy) to prevent the graph from jumping when the user clicks normally without dragging.
+          d.__dragStartX = event.x;
+          d.__dragStartY = event.y;
+          d.__hasMoved = false;
         }
         function dragged(event: any, d: any) {
+          const dx = event.x - d.__dragStartX;
+          const dy = event.y - d.__dragStartY;
+
+          // Ignore displacement less than the threshold, treating it as a click, so as not to trigger the node prematurely.
+          if (!d.__hasMoved && Math.hypot(dx, dy) < DRAG_THRESHOLD) {
+            return;
+          }
+
+          // Threshold exceeded: record the node's coordinates and restart the simulation for dragging.
+          if (!d.__hasMoved) {
+            d.__hasMoved = true;
+            d.fx = d.x;
+            d.fy = d.y;
+            simulation.alphaTarget(0.3).restart();
+          }
+
           d.fx = event.x;
           d.fy = event.y;
         }
         function dragended(event: any, d: any) {
-          if (!event.active) simulation.alphaTarget(0);
-          d.fx = null;
-          d.fy = null;
+          // If there was no drag-and-drop, the node was not locked in place, so there is no need to reset the coordinates.
+          if (d.__hasMoved) {
+            simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+          }
+          d.__hasMoved = false;
         }
-        return d3
-          .drag()
-          .on("start", dragstarted)
-          .on("drag", dragged)
-          .on("end", dragended);
+        return (
+          d3
+            .drag()
+            // Offset threshold (in pixels) to prevent a normal click from triggering a drag due to hand tremors.
+            .clickDistance(DRAG_THRESHOLD)
+            .on("start", dragstarted)
+            .on("drag", dragged)
+            .on("end", dragended)
+        );
       }
 
       // Reset selection when clicking on the background
@@ -394,14 +428,14 @@ export const ForceSimulation = forwardRef<
         if (selectedNodeRef.current) {
           selectedNodeRef.current = null;
           highlightNode(null, edges, nodes);
-          if (onNodeClick) onNodeClick("", null);
+          onNodeClickRef.current?.("", null);
         }
       });
 
       return () => {
         simulation.stop();
       };
-    }, [graphData, width, height, onNodeClick, maxLabels]);
+    }, [graphData, width, height, maxLabels]);
 
     return (
       <div className="relative">
