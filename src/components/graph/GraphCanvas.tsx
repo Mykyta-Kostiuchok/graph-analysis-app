@@ -213,8 +213,6 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
       svg.selectAll("*").remove();
 
       svg
-        .attr("width", width)
-        .attr("height", height)
         .attr("viewBox", [0, 0, width, height])
         .attr("preserveAspectRatio", "xMidYMid meet")
         .classed("cursor-move", true);
@@ -384,12 +382,12 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
       <div className="relative">
         <div
           className="border rounded-lg p-4 bg-white overflow-hidden"
-          style={{ width, height }}
+          style={{ width: "100%", height }}
         >
           <svg
             ref={svgRef}
-            width={width}
-            height={height}
+            width="100%"
+            height="100%"
             className="border rounded"
           />
         </div>
