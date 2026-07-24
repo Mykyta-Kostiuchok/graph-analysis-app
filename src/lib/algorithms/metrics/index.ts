@@ -1,4 +1,5 @@
 import Graph from "graphology";
+import { diameter as calculateGraphDiameter } from "graphology-metrics/graph";
 import {
   calculateDegreeCentrality,
   addDegreeCentralityToGraph,
@@ -73,11 +74,20 @@ export function calculateAllMetrics(graph: Graph): AllMetricsResult {
     };
   });
 
+  let diameter: number | undefined;
+  try {
+    diameter = calculateGraphDiameter(graph);
+  } catch (error) {
+    console.error("Error calculating diameter:", error);
+    diameter = undefined;
+  }
+
   const networkMetrics: NetworkMetrics = {
     nodeCount: graph.order,
     edgeCount: graph.size,
     density: calculateDensity(graph),
     averageDegree: degreeStats.mean,
+    diameter,
     degreeDistribution: {
       min: degreeStats.min,
       max: degreeStats.max,

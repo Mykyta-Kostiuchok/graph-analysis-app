@@ -1,4 +1,5 @@
 import { GraphData } from "@/types/graph";
+import { NetworkMetrics } from "@/types/metrics";
 import { buildGraph } from "@/lib/algorithms/graphBuilder";
 import { calculateAllMetrics } from "@/lib/algorithms/metrics";
 
@@ -15,7 +16,7 @@ export function enrichGraphDataWithMetrics(graphData: GraphData): GraphData {
     nodes: graphData.nodes.map((node) => {
       const metrics = metricsById.get(node.id);
       if (!metrics) return node;
-      
+
       return {
         ...node,
         degree: metrics.degree,
@@ -35,6 +36,15 @@ export function enrichGraphDataWithMetrics(graphData: GraphData): GraphData {
       };
     }),
   };
+}
+
+// Returns network-level metrics (not for individual nodes)—
+// nodeCount, edgeCount, density, diameter, communityCount, etc.
+// Used for Dashboard metrics.
+export function computeNetworkMetrics(graphData: GraphData): NetworkMetrics {
+  const { graph } = buildGraph(graphData);
+  const { networkMetrics } = calculateAllMetrics(graph);
+  return networkMetrics;
 }
 
 // Returns a Set of node ids with the highest degree (top-N) —

@@ -49,23 +49,8 @@ export function buildGraph(graphData: GraphData): BuiltGraphResult {
   }
 }
 
-/**
- * Detect directionality from raw edge list BEFORE building the graph.
- *
- * Previous implementation used graph.forEachEdge() with `return false` to break
- * the loop — that doesn't work in graphology (it's not Array.forEach).
- * This version operates on the raw edges array and is safe.
- */
+ // Default to undirected when edge direction isn't explicitly provided.
 function detectIfDirected(edges: GraphData['edges']): boolean {
-  const edgeSet = new Set(edges.map(e => `${e.source}→${e.target}`))
-
-  for (const edge of edges) {
-    // If the reverse edge doesn't exist → at least one directed edge → directed graph
-    if (!edgeSet.has(`${edge.target}→${edge.source}`)) {
-      return true
-    }
-  }
-
   return false
 }
 
